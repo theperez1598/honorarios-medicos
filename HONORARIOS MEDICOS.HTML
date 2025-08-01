@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Honorarios Médicos - Dr. José de la Cruz</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f2f2f2;
+      margin: 0;
+      padding: 20px;
+      color: #333;
+    }
+    .container {
+      max-width: 1000px;
+      margin: auto;
+      background: #fff;
+      padding: 30px;
+      border-radius: 15px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.1);
+    }
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    input, select, button {
+      padding: 10px;
+      margin: 5px 0;
+      border-radius: 10px;
+      border: 1px solid #ccc;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      padding: 10px;
+      border-bottom: 1px solid #ddd;
+      text-align: left;
+    }
+    .btn {
+      background-color: #333;
+      color: white;
+      border: none;
+      cursor: pointer;
+      border-radius: 10px;
+      padding: 12px;
+      margin-top: 10px;
+      transition: background-color 0.3s;
+    }
+    .btn:hover {
+      background-color: #555;
+    }
+    .delete-btn {
+      background: none;
+      border: none;
+      color: red;
+      cursor: pointer;
+      font-size: 18px;
+      padding: 0;
+    }
+    .paid-checkbox {
+      transform: scale(1.2);
+      cursor: pointer;
+    }
+    #loginScreen {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background: #f2f2f2;
+    }
+    #loginScreen > div {
+      max-width: 400px;
+      background: #fff;
+      padding: 40px;
+      border-radius: 15px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    #loginScreen h2 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    #loginError {
+      color: red;
+      font-size: 14px;
+      text-align: center;
+      margin-bottom: 10px;
+      min-height: 18px;
+    }
+    .header-info {
+      margin-bottom: 20px;
+      font-weight: 600;
+      text-align: center;
+    }
+    .logout-btn {
+      background-color: #a33;
+      margin-bottom: 20px;
+      width: auto;
+      padding: 8px 20px;
+      float: right;
+    }
+  </style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginScreen">
+  <div>
+    <h2>Iniciar Sesión</h2>
+    <label for="loginUser">Usuario:</label>
+    <input type="text" id="loginUser" autocomplete="username" />
+    <label for="loginPass">Contraseña:</label>
+    <input type="password" id="loginPass" autocomplete="current-password" />
+    <div id="loginError"></div>
+    <button onclick="login()" class="btn">Entrar</button>
+  </div>
+</div>
+
+<!-- APP PRINCIPAL -->
+<div id="app" style="display:none;">
+  <div class="container">
+    <button onclick="cerrarSesion()" class="btn logout-btn">Cerrar Sesión</button>
+    <h2>Honorarios Médicos - Dr. José de la Cruz</h2>
+    <p class="header-info">
+      Fecha de ingreso: <span id="fechaIngreso"></span> | Expira: <span id="fechaExpira"></span>
+    </p>
+
+    <input type="text" id="paciente" placeholder="Nombre del Paciente" />
+    <select id="ars">
+      <option value="PRIMERA">PRIMERA</option>
+      <option value="HUMANO">HUMANO</option>
+      <option value="MAPFRE">MAPFRE</option>
+      <option value="SENASA">SENASA</option>
+    </select>
+    <input type="text" id="autorizacion" placeholder="Autorización" />
+    <input type="date" id="fechaServicio" placeholder="Fecha del Servicio" />
+    <input type="number" id="total" placeholder="Monto Total" />
+    <input type="text" id="cobertura" placeholder="Cobertura (ej: 85% o 900)" />
+    <button onclick="agregarRegistro()" class="btn">Agregar</button>
+
+    <input type="text" id="buscar" placeholder="Buscar por nombre, ARS o autorización" oninput="mostrarRegistros()" />
+
+    <table id="tabla">
+      <thead>
+        <tr>
+          <th>Paciente</th>
+          <th>ARS</th>
+          <th>Autorización</th>
+          <th>Fecha Servicio</th>
+          <th>Total</th>
+          <th>Cobertura</th>
+          <th>Copago</th>
+          <th>¿Pagado?</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <div id="reporte"></div>
+
+    <button onclick="generarReporte()" class="btn">Generar Reporte</button>
+    <button onclick="descargarExcel()" class="btn">Descargar Excel</button>
+  </div>
+</div>
+
+<script>
+  const USUARIO_VALIDO = "admin";
+  const PASSWORD_VALIDO = "1234";
+
+  window.onload = () => {
+    const sesionActiva = localStorage.getItem('sesionActiva');
+    if (sesionActiva === 'true') {
+      document.getElementById("loginScreen").style.display = "none";
+      document.getElementById("app").style.display = "block";
+      mostrarRegistros();
+      mostrarFechas();
+    }
+  };
+
+  function login() {
+    const usuario = document.getElementById("loginUser").value.trim();
+    const pass = document.getElementById("loginPass").value.trim();
+    const error = document.getElementById("loginError");
+
+    if (usuario === USUARIO_VALIDO && pass === PASSWORD_VALIDO) {
+      localStorage.setItem('sesionActiva', 'true');
+      document.getElementById("loginScreen").style.display = "none";
+      document.getElementById("app").style.display = "block";
+      mostrarRegistros();
+      mostrarFechas();
+    } else {
+      error.textContent = "Usuario o contraseña incorrectos.";
+    }
+  }
+
+  function cerrarSesion() {
+    localStorage.removeItem('sesionActiva');
+    location.reload();
+  }
+
+  function mostrarFechas() {
+    const hoy = new Date();
+    const expira = new Date();
+    expira.setMonth(expira.getMonth() + 3);
+
+    const format = (d) => d.toLocaleDateString("es-DO");
+    document.getElementById("fechaIngreso").textContent = format(hoy);
+    document.getElementById("fechaExpira").textContent = format(expira);
+  }
+
+  function formatearMoneda(valor) {
+    if (isNaN(valor) || valor === null) return "$0.00";
+    return "$" + Number(valor).toLocaleString("en-US", { minimumFractionDigits: 2 });
+  }
+
+  function agregarRegistro() {
+    const paciente = document.getElementById("paciente").value.trim();
+    const ars = document.getElementById("ars").value;
+    const autorizacion = document.getElementById("autorizacion").value.trim();
+    const fechaServicio = document.getElementById("fechaServicio").value;
+    const totalRaw = document.getElementById("total").value;
+    const coberturaInput = document.getElementById("cobertura").value.trim();
+
+    if (!paciente || !ars || !autorizacion || !fechaServicio || !totalRaw || !coberturaInput) {
+      alert("Por favor completa todos los campos.");
+      return;
+    }
+
+    const total = parseFloat(totalRaw);
+    if (isNaN(total) || total < 0) {
+      alert("Monto Total inválido.");
+      return;
+    }
+
+    let cobertura = 0;
+    if (coberturaInput.includes("%")) {
+      let porcentaje = parseFloat(coberturaInput.replace("%", ""));
+      if (isNaN(porcentaje) || porcentaje < 0 || porcentaje > 100) {
+        alert("Cobertura porcentaje inválido.");
+        return;
+      }
+      cobertura = total * (porcentaje / 100);
+    } else {
+      cobertura = parseFloat(coberturaInput);
+      if (isNaN(cobertura) || cobertura < 0 || cobertura > total) {
+        alert("Cobertura monto inválido.");
+        return;
+      }
+    }
+
+    const copago = total - cobertura;
+
+    const registros = JSON.parse(localStorage.getItem("registros") || "[]");
+    registros.push({ paciente, ars, autorizacion, fechaServicio, total, cobertura, copago, pagado: false });
+    localStorage.setItem("registros", JSON.stringify(registros));
+
+    limpiarCampos();
+    mostrarRegistros();
+  }
+
+  function mostrarRegistros() {
+    const registros = JSON.parse(localStorage.getItem("registros") || "[]");
+    const buscar = document.getElementById("buscar").value.toLowerCase();
+    const tbody = document.querySelector("#tabla tbody");
+    tbody.innerHTML = "";
+
+    registros.forEach((r, i) => {
+      if (
+        r.paciente.toLowerCase().includes(buscar) ||
+        r.ars.toLowerCase().includes(buscar) ||
+        r.autorizacion.toLowerCase().includes(buscar)
+      ) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td contenteditable onblur="editar(${i}, 'paciente', this.innerText)">${r.paciente}</td>
+          <td contenteditable onblur="editar(${i}, 'ars', this.innerText)">${r.ars}</td>
+          <td contenteditable onblur="editar(${i}, 'autorizacion', this.innerText)">${r.autorizacion}</td>
+          <td contenteditable onblur="editar(${i}, 'fechaServicio', this.innerText)">${r.fechaServicio}</td>
+          <td>${formatearMoneda(r.total)}</td>
+          <td>${formatearMoneda(r.cobertura)}</td>
+          <td>${formatearMoneda(r.copago)}</td>
+          <td><input type="checkbox" class="paid-checkbox" ${r.pagado ? "checked" : ""} onchange="editar(${i}, 'pagado', this.checked)"></td>
+          <td><button onclick="eliminarRegistro(${i})" class="delete-btn" title="Eliminar Registro">🗑️</button></td>
+        `;
+        tbody.appendChild(tr);
+      }
+    });
+  }
+
+  function editar(index, campo, valor) {
+    const registros = JSON.parse(localStorage.getItem("registros") || "[]");
+    if (campo === "pagado") {
+      registros[index][campo] = valor;
+    } else {
+      registros[index][campo] = valor.trim();
+    }
+    localStorage.setItem("registros", JSON.stringify(registros));
+    mostrarRegistros();
+  }
+
+  function eliminarRegistro(index) {
+    const registros = JSON.parse(localStorage.getItem("registros") || "[]");
+    if (confirm("¿Seguro que deseas eliminar este registro?")) {
+      registros.splice(index, 1);
+      localStorage.setItem("registros", JSON.stringify(registros));
+      mostrarRegistros();
+    }
+  }
+
+  function limpiarCampos() {
+    document.getElementById("paciente").value = "";
+    document.getElementById("ars").value = "PRIMERA";
+    document.getElementById("autorizacion").value = "";
+    document.getElementById("fechaServicio").value = "";
+    document.getElementById("total").value = "";
+    document.getElementById("cobertura").value = "";
+  }
+
+  function generarReporte() {
+    const registros = JSON.parse(localStorage.getItem("registros") || "[]");
+    const total = registros.reduce((sum, r) => sum + r.total, 0);
+    const cobertura = registros.reduce((sum, r) => sum + r.cobertura, 0);
+    const copago = registros.reduce((sum, r) => sum + r.copago, 0);
+
+    document.getElementById("reporte").innerHTML = `
+      <h3>Reporte Total</h3>
+      <p>Total Facturado: <strong>${formatearMoneda(total)}</strong></p>
+      <p>Cobertura ARS: <strong>${formatearMoneda(cobertura)}</strong></p>
+      <p>Copago Paciente: <strong>${formatearMoneda(copago)}</strong></p>
+    `;
+  }
+
+  function descargarExcel() {
+    const registros = JSON.parse(localStorage.getItem("registros") || "[]");
+    if (registros.length === 0) {
+      alert("No hay registros para exportar.");
+      return;
+    }
+
+    let tablaHTML = `<table border="1"><thead><tr>
+      <th>Paciente</th><th>ARS</th><th>Autorización</th><th>Fecha Servicio</th><th>Total</th><th>Cobertura</th><th>Copago</th><th>Pagado</th>
+    </tr></thead><tbody>`;
+
+    registros.forEach(r => {
+      tablaHTML += `<tr>
+        <td>${r.paciente}</td>
+        <td>${r.ars}</td>
+        <td>${r.autorizacion}</td>
+        <td>${r.fechaServicio}</td>
+        <td>${formatearMoneda(r.total)}</td>
+        <td>${formatearMoneda(r.cobertura)}</td>
+        <td>${formatearMoneda(r.copago)}</td>
+        <td>${r.pagado ? 'Sí' : 'No'}</td>
+      </tr>`;
+    });
+
+    tablaHTML += "</tbody></table>";
+
+    const blob = new Blob([tablaHTML], { type: 'application/vnd.ms-excel' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'honorarios_medicos.xls';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+</script>
+</body>
+</html>
